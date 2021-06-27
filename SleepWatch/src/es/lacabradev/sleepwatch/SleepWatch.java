@@ -38,7 +38,7 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.awt.event.ActionEvent;
 
-public class Main extends JFrame {
+public class SleepWatch extends JFrame {
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd.HH_mm_ss");
 
 	private JPanel contentPane;
@@ -74,7 +74,7 @@ public class Main extends JFrame {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					Main frame = new Main();
+					SleepWatch frame = new SleepWatch();
 					frame.setVisible(true);
 					frame.pack();
 				} catch (Exception e) {
@@ -87,7 +87,7 @@ public class Main extends JFrame {
 	/**
 	 * Create the frame.
 	 */
-	public Main() {
+	public SleepWatch() {
 		setTitle("Grabaci\u00F3n de v\u00EDdeos por detecci\u00F3n de movimiento");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		contentPane = new JPanel();
@@ -164,7 +164,7 @@ public class Main extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				JFileChooser fc = new JFileChooser();
 				fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-				if (fc.showOpenDialog(Main.this) == JFileChooser.APPROVE_OPTION) {
+				if (fc.showOpenDialog(SleepWatch.this) == JFileChooser.APPROVE_OPTION) {
 					Path dir = fc.getSelectedFile().toPath();
 					textFieldDirectorio.setText(dir.toString());
 				}				

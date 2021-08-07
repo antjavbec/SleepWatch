@@ -2,6 +2,8 @@ package es.lacabradev.sleepwatch;
 
 import java.awt.Dimension;
 import java.awt.EventQueue;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -9,37 +11,49 @@ import javax.swing.border.EmptyBorder;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jcodec.api.awt.AWTSequenceEncoder;
+import org.openimaj.image.ImageUtilities;
+import org.openimaj.image.processing.face.detection.DetectedFace;
+import org.openimaj.image.processing.face.detection.HaarCascadeDetector;
 
 import com.github.sarxos.webcam.Webcam;
 import com.github.sarxos.webcam.WebcamMotionDetector;
-import com.github.sarxos.webcam.WebcamMotionDetectorDefaultAlgorithm;
 import com.github.sarxos.webcam.WebcamPanel;
 import com.github.sarxos.webcam.ds.ipcam.IpCamDeviceRegistry;
 import com.github.sarxos.webcam.ds.ipcam.IpCamDriver;
 import com.github.sarxos.webcam.ds.ipcam.IpCamMode;
 
 import net.miginfocom.swing.MigLayout;
+
 import javax.swing.JLabel;
 import javax.swing.JTextField;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.UIManager;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.Timer;
+
 import java.awt.event.ActionListener;
-import java.io.File;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.awt.event.ActionEvent;
 
 public class SleepWatch extends JFrame {
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd.HH_mm_ss");
+
+	private static final String DEFAULT_CAMERA_IP = "192.168.1.131";
+	private static final String SNAPSHOOT_URL = "http://%s/snapshot.cgi?user=%s&pwd=%s";
 
 	private JPanel contentPane;
 	private JTextField textFieldNombreDispositivo;
@@ -62,6 +76,8 @@ public class SleepWatch extends JFrame {
 	private Webcam webcam;
 	private boolean detecting;
 
+	private ImagePanel imagePanel;
+	
 	/**
 	 * Launch the application.
 	 */
@@ -107,7 +123,7 @@ public class SleepWatch extends JFrame {
 		contentPane.add(lblNewLabel_1, "cell 0 1,alignx trailing");
 		
 		textFieldIP = new JTextField();
-		textFieldIP.setText("192.168.1.144");
+		textFieldIP.setText(DEFAULT_CAMERA_IP);
 		contentPane.add(textFieldIP, "cell 1 1 2 1,growx");
 		textFieldIP.setColumns(10);
 		
@@ -218,7 +234,7 @@ public class SleepWatch extends JFrame {
 		
 		panelCam = new JPanel();
 		panelCam.setMinimumSize(new Dimension(640, 480));
-		contentPane.add(panelCam, "cell 0 11 3 1,grow");
+		contentPane.add(panelCam, "cell 0 11 3 1,grow");		
 	}
 	
 	protected void conectarCamara() {
@@ -234,7 +250,8 @@ public class SleepWatch extends JFrame {
 					}
 				}
 				webcam.setViewSize(max);
-				detector = new Detector(webcam, Integer.parseInt(textFieldPixelThreshold.getText()), Double.parseDouble(textFieldAreaThreshold.getText()));
+				detector = new FaceDetector(webcam);
+//				detector = new MotionDetector(webcam, Integer.parseInt(textFieldPixelThreshold.getText()), Double.parseDouble(textFieldAreaThreshold.getText()));
 				panelCam.add(new WebcamPanel(webcam));
 				webcam.getImage();
 				btnConectar.setEnabled(false);
@@ -282,7 +299,109 @@ public class SleepWatch extends JFrame {
 		return result;
 	}
 	
-	class Detector implements Runnable {
+	class ImagePanel extends JPanel {
+		private Object lock;
+		private BufferedImage image;
+		
+		public ImagePanel() {
+			lock = new Object();
+			Timer timer = new Timer(1000 / 25, action -> repaint());
+			timer.start();
+		}
+		
+		public void setImage(BufferedImage image) {
+			synchronized (lock) {
+				this.image = image;
+				setPreferredSize(new Dimension(image.getWidth(), image.getHeight()));
+			}
+		}
+
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			synchronized (lock) {
+				if (image != null) {
+					Graphics2D g2d = (Graphics2D) g.create();
+					int x = (getWidth() - image.getWidth()) / 2;
+					int y = (getHeight() - image.getHeight()) / 2;
+					g2d.drawImage(image, x, y, this);
+					g2d.dispose();
+				}
+			}
+		}
+	}
+	
+	interface Detector extends Runnable {
+		public void halt();
+	}
+	
+	class FaceDetector implements Detector {
+		private Webcam webcam;
+		private HaarCascadeDetector faceDetector;
+		private AtomicBoolean running;
+		private Recorder recorder;
+		private boolean recording;
+		private long lastFaceTime;
+		private SoundPlayer sp;
+		
+		FaceDetector(Webcam webcam) throws Exception {
+			this.webcam = webcam;
+			faceDetector = new HaarCascadeDetector();
+			recorder = new Recorder(webcam, Paths.get(textFieldDirectorio.getText()));
+			sp = new SoundPlayer();
+		}
+		
+		@Override
+		public void run() {
+			running = new AtomicBoolean(true);
+			recording = false;
+			while (running.get()) {
+				List<DetectedFace> faces = faceDetector.detectFaces(ImageUtilities.createFImage(webcam.getImage()));
+				if (faces.size() > 0) {
+					lastFaceTime = System.currentTimeMillis();
+					if (!recording) {
+						mensaje(String.format("Activando grabación por detección de %s caras", faces.size()));
+						sp.ehEh();
+						try {
+							Thread t = new Thread(recorder);
+							t.start();
+							recording = true;
+						} catch (Exception e) {
+							mensaje("ERROR: no se pudo lanzar la grabación de vídeo: " + e);
+						}
+					}
+				} else if (recording && (System.currentTimeMillis() - lastFaceTime) > Integer.parseInt(textFieldSegundosInactivo.getText()) * 1000L) {
+					mensaje(String.format("No ha habido caras en %s segundos. Se para la grabación.", textFieldSegundosInactivo.getText()));
+					recorder.halt();
+					recording = false;
+				}
+			}
+		}
+		
+		public void halt() {
+			running.set(false);
+			if (recording) {
+				recorder.halt();
+			}
+		}
+	}
+	
+	class SoundPlayer {
+		private AudioInputStream ais;
+		private Clip ehehClip;
+		
+		SoundPlayer() throws Exception {
+			ais = AudioSystem.getAudioInputStream(getClass().getResourceAsStream("/eheh.wav"));
+			ehehClip = AudioSystem.getClip();
+			ehehClip.open(ais);
+		}
+		
+		public void ehEh() {
+			ehehClip.loop(0);
+		}
+	}
+	
+	class MotionDetector implements Detector {
 		private Webcam webcam;
 		private WebcamMotionDetector detector;
 		private AtomicBoolean running;
@@ -290,7 +409,7 @@ public class SleepWatch extends JFrame {
 		private long lastMotionTime;
 		private boolean recording;
 		
-		Detector(Webcam webcam, int pixelThreshold, double areaThreshold) throws Exception {
+		MotionDetector(Webcam webcam, int pixelThreshold, double areaThreshold) throws Exception {
 			this.webcam = webcam;
 			detector = new WebcamMotionDetector(webcam, pixelThreshold, areaThreshold);
 			detector.setInterval(100);
@@ -301,9 +420,16 @@ public class SleepWatch extends JFrame {
 		@Override
 		public void run() {
 			running = new AtomicBoolean(true);
+//			for (int i = 0; i < 60 & running.get(); i++) {
+//				try {
+//					Thread.sleep(60000);
+//				} catch (InterruptedException e) {
+//				}
+//			}
 			recording = false;
 			while (running.get()) {
 				if (detector.isMotion()) {
+					lastMotionTime = System.currentTimeMillis();
 					if (!recording) {
 						mensaje("Detectado movimiento");
 						try {
@@ -313,8 +439,6 @@ public class SleepWatch extends JFrame {
 						} catch (Exception e) {
 							mensaje("ERROR: no se pudo lanzar la grabación de vídeo: " + e);
 						}
-					} else {
-						lastMotionTime = System.currentTimeMillis();
 					}
 				} else if (recording && (System.currentTimeMillis() - lastMotionTime) > Integer.parseInt(textFieldSegundosInactivo.getText()) * 1000L) {
 					mensaje("Se para la grabación por inactividad");

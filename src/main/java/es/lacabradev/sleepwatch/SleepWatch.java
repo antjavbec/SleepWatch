@@ -30,6 +30,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.UnsupportedAudioFileException;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JScrollPane;
@@ -48,6 +49,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.awt.event.ActionEvent;
+import javax.swing.JRadioButton;
 
 public class SleepWatch extends JFrame {
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd.HH_mm_ss");
@@ -77,6 +79,10 @@ public class SleepWatch extends JFrame {
 	private boolean detecting;
 
 	private ImagePanel imagePanel;
+
+	private JTextField textFieldInitTime;
+	private JRadioButton rdbtnMovimiento;
+	private JRadioButton rdbtnCaras;
 	
 	/**
 	 * Launch the application.
@@ -143,36 +149,58 @@ public class SleepWatch extends JFrame {
 		contentPane.add(textFieldContrasenia, "cell 1 3 2 1,growx");
 		textFieldContrasenia.setColumns(10);
 		
+		JLabel lblInitTime = new JLabel("Segundos de retraso antes de iniciar la detección:");
+		contentPane.add(lblInitTime, "cell 0 4, alignx trailing");
+		
+		textFieldInitTime = new JTextField();
+		textFieldInitTime.setText("0");
+		contentPane.add(textFieldInitTime, "cell 1 4 2 1, growx");
+		textFieldInitTime.setColumns(10);
+
 		JLabel lblNewLabel_5 = new JLabel("Segundos de inactividad para parar v\u00EDdeo:");
-		contentPane.add(lblNewLabel_5, "cell 0 4,alignx trailing");
+		contentPane.add(lblNewLabel_5, "cell 0 5,alignx trailing");
 		
 		textFieldSegundosInactivo = new JTextField();
 		textFieldSegundosInactivo.setText("60");
-		contentPane.add(textFieldSegundosInactivo, "cell 1 4 2 1,growx");
+		contentPane.add(textFieldSegundosInactivo, "cell 1 5 2 1,growx");
 		textFieldSegundosInactivo.setColumns(10);
 		
-		JLabel lblNewLabel_6 = new JLabel("Pixel threshold:");
-		contentPane.add(lblNewLabel_6, "cell 0 5,alignx trailing");
+		JLabel lblTipoDetector = new JLabel("Tipo de detector:");
+		contentPane.add(lblTipoDetector, "cell 0 6, alignx trailing");
+		
+		rdbtnMovimiento = new JRadioButton("Movimiento");
+		contentPane.add(rdbtnMovimiento, "flowx,cell 1 6");
+		rdbtnMovimiento.setSelected(true);
+		
+		rdbtnCaras = new JRadioButton("Caras");
+		contentPane.add(rdbtnCaras, "cell 1 6");
+		
+		ButtonGroup detectorButtonGroup = new ButtonGroup();
+		detectorButtonGroup.add(rdbtnCaras);
+		detectorButtonGroup.add(rdbtnMovimiento);
+		
+		JLabel lblNewLabel_6 = new JLabel("Motion Pixel threshold:");
+		contentPane.add(lblNewLabel_6, "cell 0 7,alignx trailing");
 		
 		textFieldPixelThreshold = new JTextField();
-		contentPane.add(textFieldPixelThreshold, "cell 1 5,growx");
+		contentPane.add(textFieldPixelThreshold, "cell 1 7,growx");
 		textFieldPixelThreshold.setColumns(10);
 		textFieldPixelThreshold.setText("10");
 		
-		JLabel lblNewLabel_7 = new JLabel("Area threshold:");
-		contentPane.add(lblNewLabel_7, "cell 0 6,alignx trailing");
+		JLabel lblNewLabel_7 = new JLabel("Motion Area threshold:");
+		contentPane.add(lblNewLabel_7, "cell 0 8,alignx trailing");
 		
 		textFieldAreaThreshold = new JTextField();
-		contentPane.add(textFieldAreaThreshold, "cell 1 6,growx");
+		contentPane.add(textFieldAreaThreshold, "cell 1 8,growx");
 		textFieldAreaThreshold.setColumns(10);
 		textFieldAreaThreshold.setText("0.1");
 		
 		JLabel lblNewLabel_4 = new JLabel("Directorio de grabaci\u00F3n:");
-		contentPane.add(lblNewLabel_4, "cell 0 7,alignx trailing");
+		contentPane.add(lblNewLabel_4, "cell 0 9,alignx trailing");
 		
 		textFieldDirectorio = new JTextField();
 		textFieldDirectorio.setEditable(false);
-		contentPane.add(textFieldDirectorio, "cell 1 7,growx");
+		contentPane.add(textFieldDirectorio, "cell 1 9,growx");
 		textFieldDirectorio.setColumns(10);
 		
 		JButton btnSeleccionar = new JButton("Seleccionar");
@@ -186,7 +214,7 @@ public class SleepWatch extends JFrame {
 				}				
 			}
 		});
-		contentPane.add(btnSeleccionar, "cell 2 7");
+		contentPane.add(btnSeleccionar, "cell 2 9");
 		
 		btnActivar = new JButton("Activar detecci\u00F3n");
 		btnActivar.setEnabled(false);
@@ -217,13 +245,13 @@ public class SleepWatch extends JFrame {
 				});
 			}
 		});
-		contentPane.add(btnConectar, "cell 0 8 3 1,growx");
-		contentPane.add(btnActivar, "cell 0 9 3 1,growx");
+		contentPane.add(btnConectar, "cell 0 10 3 1,growx");
+		contentPane.add(btnActivar, "cell 0 11 3 1,growx");
 		
 		JScrollPane scrollPane = new JScrollPane();
 		scrollPane.setMinimumSize(new Dimension(23, 100));
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		contentPane.add(scrollPane, "cell 0 10 3 1,grow");
+		contentPane.add(scrollPane, "cell 0 12 3 1,grow");
 		
 		textAreaMensajes = new JTextArea();
 		textAreaMensajes.setMinimumSize(new Dimension(5, 480));
@@ -234,7 +262,7 @@ public class SleepWatch extends JFrame {
 		
 		panelCam = new JPanel();
 		panelCam.setMinimumSize(new Dimension(640, 480));
-		contentPane.add(panelCam, "cell 0 11 3 1,grow");		
+		contentPane.add(panelCam, "cell 0 13 3 1,grow");				
 	}
 	
 	protected void conectarCamara() {
@@ -250,8 +278,6 @@ public class SleepWatch extends JFrame {
 					}
 				}
 				webcam.setViewSize(max);
-				detector = new FaceDetector(webcam);
-//				detector = new MotionDetector(webcam, Integer.parseInt(textFieldPixelThreshold.getText()), Double.parseDouble(textFieldAreaThreshold.getText()));
 				panelCam.add(new WebcamPanel(webcam));
 				webcam.getImage();
 				btnConectar.setEnabled(false);
@@ -271,8 +297,22 @@ public class SleepWatch extends JFrame {
 
 	protected void lanzarDeteccion() throws Exception {
 		mensaje("Lanzando detección...");
-		Thread t = new Thread(detector);
-		t.start();
+		EventQueue.invokeLater(() -> {
+			if (btnActivar.isEnabled()) {
+				try {
+					Thread.sleep(Integer.parseInt(textFieldInitTime.getText()) * 1000L);
+					if (rdbtnCaras.isSelected()) {
+						detector = new FaceDetector(webcam);
+					} else {
+						detector = new MotionDetector(webcam, Integer.parseInt(textFieldPixelThreshold.getText()), Double.parseDouble(textFieldAreaThreshold.getText()));
+					}					
+					Thread t = new Thread(detector);
+					t.start();
+				} catch (Exception e) {
+					mensaje("No se pudo lanzar el detector");
+				}
+			}
+		});
 		mensaje("Detección funcionando");
 		btnActivar.setText("Desactivar detección");
 		detecting = true;
@@ -420,12 +460,6 @@ public class SleepWatch extends JFrame {
 		@Override
 		public void run() {
 			running = new AtomicBoolean(true);
-//			for (int i = 0; i < 60 & running.get(); i++) {
-//				try {
-//					Thread.sleep(60000);
-//				} catch (InterruptedException e) {
-//				}
-//			}
 			recording = false;
 			while (running.get()) {
 				if (detector.isMotion()) {
